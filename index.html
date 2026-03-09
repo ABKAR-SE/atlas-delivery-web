@@ -7,6 +7,9 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
 <!-- Supabase JS -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- Leaflet (rider map) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Atlas Shared -->
 <link rel="stylesheet" href="https://raw.githubusercontent.com/ABKAR-SE/atlas-delivery-web/main/atlas-styles.css">
 <style>
@@ -180,6 +183,19 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:cen
 footer{border-top:1px solid var(--atlas-border);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--atlas-muted);font-family:var(--atlas-font-mono);flex-wrap:wrap;gap:10px}
 footer a{color:var(--atlas-muted);text-decoration:none}footer a:hover{color:var(--atlas-cyan)}
 @media(max-width:600px){nav{padding:0 16px}.hero,.search-wrap,.section,.banner{padding-left:16px;padding-right:16px}.cart-sidebar{width:100%}.mission{gap:18px;justify-content:flex-start}}
+
+/* ── RIDER LIVE MAP ── */
+#riderMap{width:100%;height:220px;border-radius:12px;overflow:hidden;margin-bottom:14px;border:1px solid var(--atlas-border);display:none}
+#riderMap.show{display:block}
+.leaflet-tile{filter:brightness(.65) saturate(.5) hue-rotate(195deg)}
+.leaflet-container{background:#0a0a14}
+.leaflet-popup-content-wrapper{background:var(--atlas-surface);border:1px solid var(--atlas-border);border-radius:10px;color:var(--atlas-text);font-family:var(--atlas-font-mono);font-size:11px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.leaflet-popup-tip{background:var(--atlas-surface)}
+.leaflet-popup-close-button{color:var(--atlas-muted)!important}
+.r-map-badge{display:flex;align-items:center;gap:7px;font-family:var(--atlas-font-mono);font-size:10px;color:var(--atlas-cyan);letter-spacing:.07em;margin-bottom:8px}
+.r-map-dot{width:8px;height:8px;border-radius:50%;background:var(--atlas-cyan);box-shadow:0 0 8px var(--atlas-cyan);animation:atlas-pulse 1.5s infinite;flex-shrink:0}
+.rider-map-marker{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00D4FF,#7B2FFF);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 0 4px rgba(0,212,255,.2),0 3px 10px rgba(0,0,0,.5);border:2px solid rgba(0,212,255,.5)}
+
 </style>
 </head>
 <body>
@@ -300,7 +316,11 @@ footer a{color:var(--atlas-muted);text-decoration:none}footer a:hover{color:var(
       <div><div class="modal-title" id="trackerTitle">Spåra order</div></div>
       <button class="modal-close" onclick="closeTracker()">✕</button>
     </div>
-    <div class="modal-body" id="trackerBody"></div>
+    <div class="modal-body">
+      <div class="r-map-badge" id="riderMapBadge" style="display:none"><div class="r-map-dot"></div>BUDET ÄR PÅ VÄG — LIVE POSITION</div>
+      <div id="riderMap"></div>
+      <div id="trackerBody"></div>
+    </div>
   </div>
 </div>
 
@@ -598,7 +618,14 @@ function showOrderTracker(order) {
   renderTracker(order);
   document.getElementById('trackerModal').classList.add('open');
 }
-function closeTracker(){document.getElementById('trackerModal').classList.remove('open')}
+// closeTracker defined below with map cleanup
+
+// ── RIDER LIVE MAP state ─────────────────────────────────────
+let _riderMap       = null;
+let _riderMapMarker = null;
+let _custMapMarker  = null;
+let _riderMapPoll   = null;
+let _trackedRiderId = null;
 
 function renderTracker(order) {
   const currentIdx = STATUS_STEPS.indexOf(order.status);
@@ -619,6 +646,82 @@ function renderTracker(order) {
     </div>
     ${order.status==='delivered'?`<div style="margin-top:14px;padding:14px;background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);border-radius:10px;font-size:13px;text-align:center;color:var(--atlas-green)">Din mat har levererats! Smaklig måltid 🎉</div>`:''}
   `;
+
+  // Show/hide live map
+  if(order.status === 'picked' && order.rider_id) {
+    showRiderMap(order);
+  } else {
+    hideRiderMap();
+  }
+}
+
+async function showRiderMap(order) {
+  document.getElementById('riderMap').classList.add('show');
+  document.getElementById('riderMapBadge').style.display = 'flex';
+  _trackedRiderId = order.rider_id;
+
+  // Init map once
+  if(!_riderMap) {
+    _riderMap = L.map('riderMap', {
+      center: [59.3293, 18.0686],
+      zoom: 13,
+      zoomControl: false,
+      attributionControl: false,
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_riderMap);
+  }
+
+  // Customer marker (static — delivery address)
+  const custCoords = [59.3220, 18.0780]; // approximate; would use geocoding in prod
+  if(!_custMapMarker) {
+    const custIcon = L.divIcon({ className:'', html:'<div style="font-size:22px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))">📍</div>', iconSize:[28,28], iconAnchor:[14,28] });
+    _custMapMarker = L.marker(custCoords, { icon: custIcon }).addTo(_riderMap);
+    _custMapMarker.bindPopup('<b>Din adress</b><br>' + order.address);
+  }
+
+  // Load rider position immediately then poll every 5s
+  await updateRiderMapPosition(order.rider_id);
+  clearInterval(_riderMapPoll);
+  _riderMapPoll = setInterval(() => updateRiderMapPosition(_trackedRiderId), 5000);
+
+  setTimeout(() => _riderMap.invalidateSize(), 120);
+}
+
+async function updateRiderMapPosition(riderId) {
+  if(!riderId || !_riderMap) return;
+  const { data: rider } = await SB.from('riders').select('lat,lng,name').eq('id', riderId).single();
+  if(!rider || !rider.lat || !rider.lng) return;
+
+  const latlng = [rider.lat, rider.lng];
+
+  if(_riderMapMarker) {
+    _riderMapMarker.setLatLng(latlng);
+  } else {
+    const riderIcon = L.divIcon({ className:'', html:'<div class="rider-map-marker">🛵</div>', iconSize:[32,32], iconAnchor:[16,16] });
+    _riderMapMarker = L.marker(latlng, { icon: riderIcon, zIndexOffset: 1000 }).addTo(_riderMap);
+    _riderMapMarker.bindPopup('<b>' + (rider.name||'Budet') + '</b><br>På väg till dig!');
+    // Fit both markers in view on first load
+    if(_custMapMarker) {
+      _riderMap.fitBounds(L.latLngBounds([latlng, _custMapMarker.getLatLng()]), { padding: [40, 40] });
+    } else {
+      _riderMap.setView(latlng, 14);
+    }
+  }
+}
+
+function hideRiderMap() {
+  document.getElementById('riderMap').classList.remove('show');
+  document.getElementById('riderMapBadge').style.display = 'none';
+  clearInterval(_riderMapPoll);
+  _riderMapPoll = null;
+  _trackedRiderId = null;
+}
+
+function closeTracker(){
+  document.getElementById('trackerModal').classList.remove('open');
+  hideRiderMap();
+  // Destroy map so it re-inits correctly next time
+  if(_riderMap){ _riderMap.remove(); _riderMap=null; _riderMapMarker=null; _custMapMarker=null; }
 }
 
 function subscribeToOrder(orderId) {
