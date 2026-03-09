@@ -4,842 +4,721 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Atlas Delivery — Beställ Mat</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- Atlas Shared -->
+<link rel="stylesheet" href="https://raw.githubusercontent.com/ABKAR-SE/atlas-delivery-web/main/atlas-styles.css">
 <style>
-:root {
-  --bg:        #07070E;
-  --surface:   #0F0F1A;
-  --surface2:  #161625;
-  --border:    rgba(0,212,255,0.10);
-  --cyan:      #00D4FF;
-  --violet:    #7B2FFF;
-  --orange:    #FF6B35;
-  --green:     #00FF88;
-  --text:      #E8E8F0;
-  --muted:     #5A5A78;
-  --font-d:    'Syne', sans-serif;
-  --font-b:    'DM Sans', sans-serif;
-  --font-m:    'JetBrains Mono', monospace;
-  --r:         12px;
-  --glow:      0 0 40px rgba(0,212,255,0.18);
-}
-*{margin:0;padding:0;box-sizing:border-box}
+/* ── Override: raw.githubusercontent doesn't serve CSS with correct MIME.
+      Styles below are self-contained for this app. ── */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{--atlas-bg:#07070E;--atlas-surface:#0F0F1A;--atlas-surface2:#161625;--atlas-surface3:#1C1C2E;--atlas-border:rgba(0,212,255,0.10);--atlas-border2:rgba(255,255,255,0.05);--atlas-cyan:#00D4FF;--atlas-violet:#7B2FFF;--atlas-orange:#FF6B35;--atlas-green:#00FF88;--atlas-red:#FF3B3B;--atlas-yellow:#FFB800;--atlas-text:#E8E8F0;--atlas-muted:#5A5A78;--atlas-font-display:'Syne',sans-serif;--atlas-font-body:'DM Sans',sans-serif;--atlas-font-mono:'JetBrains Mono',monospace;--atlas-radius:10px;--atlas-radius-lg:16px;--atlas-radius-xl:20px;--atlas-transition:200ms cubic-bezier(.4,0,.2,1);--atlas-grad-primary:linear-gradient(135deg,#00D4FF,#7B2FFF);--atlas-glow-sm:0 0 16px rgba(0,212,255,.12)}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:var(--font-b);min-height:100vh;overflow-x:hidden}
+body{background:var(--atlas-bg);color:var(--atlas-text);font-family:var(--atlas-font-body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(0,212,255,.2);border-radius:100px}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse 80% 50% at 20% 10%,rgba(0,212,255,.05) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 80%,rgba(123,47,255,.04) 0%,transparent 60%)}
 
-/* ── GRID NOISE BACKGROUND ── */
-body::before{
-  content:'';position:fixed;inset:0;
-  background-image:radial-gradient(ellipse 80% 50% at 20% 10%, rgba(0,212,255,0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(123,47,255,0.05) 0%, transparent 60%);
-  pointer-events:none;z-index:0
-}
+/* Badges */
+.atlas-badge{display:inline-flex;align-items:center;font-family:var(--atlas-font-mono);font-size:10px;font-weight:600;letter-spacing:.08em;padding:3px 10px;border-radius:100px}
+.atlas-badge--new{background:rgba(0,212,255,.12);color:var(--atlas-cyan);border:1px solid rgba(0,212,255,.3)}
+.atlas-badge--ready{background:rgba(0,255,136,.12);color:var(--atlas-green);border:1px solid rgba(0,255,136,.3)}
+.atlas-badge--cancelled{background:rgba(255,59,59,.12);color:var(--atlas-red);border:1px solid rgba(255,59,59,.3)}
+.atlas-badge--preparing{background:rgba(255,107,53,.12);color:var(--atlas-orange);border:1px solid rgba(255,107,53,.3)}
+.atlas-badge--picked{background:rgba(123,47,255,.12);color:#B080FF;border:1px solid rgba(123,47,255,.3)}
+.atlas-badge--delivered{background:rgba(0,255,136,.08);color:var(--atlas-green);border:1px solid rgba(0,255,136,.2)}
 
-/* ── NAVBAR ── */
-nav{
-  position:fixed;top:0;left:0;right:0;z-index:100;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 32px;height:64px;
-  background:rgba(7,7,14,0.85);
-  backdrop-filter:blur(24px);
-  border-bottom:1px solid var(--border);
-}
-.nav-logo{
-  font-family:var(--font-m);font-size:13px;letter-spacing:0.12em;
-  color:var(--cyan);text-transform:uppercase;
-  display:flex;align-items:center;gap:10px
-}
-.nav-logo-dot{
-  width:8px;height:8px;border-radius:50%;
-  background:var(--cyan);
-  box-shadow:0 0 10px var(--cyan);
-  animation:pulse 2s infinite
-}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
-.nav-links{display:flex;align-items:center;gap:8px}
-.nav-link{
-  font-family:var(--font-b);font-size:13px;color:var(--muted);
-  padding:6px 14px;border-radius:6px;cursor:pointer;
-  transition:all 0.2s;border:none;background:none;
-}
-.nav-link:hover{color:var(--text);background:var(--surface2)}
-.nav-cart{
-  display:flex;align-items:center;gap:8px;
-  background:linear-gradient(135deg,var(--cyan),var(--violet));
-  color:#07070E;font-family:var(--font-m);font-size:12px;font-weight:600;
-  padding:8px 18px;border-radius:8px;cursor:pointer;border:none;
-  letter-spacing:0.05em;transition:opacity 0.2s
-}
-.nav-cart:hover{opacity:0.85}
-.cart-count{
-  background:rgba(0,0,0,0.3);border-radius:50%;
-  width:20px;height:20px;display:flex;align-items:center;justify-content:center;
-  font-size:11px
-}
+/* Buttons */
+.atlas-btn-primary{background:var(--atlas-grad-primary);color:var(--atlas-bg);font-family:var(--atlas-font-mono);font-weight:600;font-size:12px;letter-spacing:.06em;padding:12px 24px;border-radius:var(--atlas-radius);border:none;cursor:pointer;transition:var(--atlas-transition)}
+.atlas-btn-primary:hover{opacity:.85;transform:translateY(-1px)}.atlas-btn-primary:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.atlas-btn-ghost{background:transparent;color:var(--atlas-text);font-family:var(--atlas-font-mono);font-size:12px;letter-spacing:.06em;padding:10px 20px;border-radius:var(--atlas-radius);border:1px solid var(--atlas-border);cursor:pointer;transition:var(--atlas-transition)}
+.atlas-btn-ghost:hover{border-color:rgba(0,212,255,.4);color:var(--atlas-cyan)}
+/* Input */
+.atlas-input{width:100%;background:var(--atlas-surface2);border:1px solid var(--atlas-border);border-radius:var(--atlas-radius);padding:10px 14px;color:var(--atlas-text);font-family:var(--atlas-font-body);font-size:14px;outline:none;transition:border-color var(--atlas-transition)}
+.atlas-input:focus{border-color:rgba(0,212,255,.4)}.atlas-input::placeholder{color:var(--atlas-muted)}
+.atlas-label{font-family:var(--atlas-font-mono);font-size:10px;color:var(--atlas-muted);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+/* Toast */
+.atlas-toast{position:fixed;bottom:24px;right:24px;z-index:9999;background:var(--atlas-surface);border:1px solid rgba(0,255,136,.3);border-radius:var(--atlas-radius);padding:12px 20px;display:flex;align-items:center;gap:10px;font-size:13px;font-family:var(--atlas-font-mono);transform:translateY(80px);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;max-width:320px}
+.atlas-toast.show{transform:translateY(0);opacity:1}.atlas-toast-dot{width:7px;height:7px;border-radius:50%;background:var(--atlas-green);box-shadow:0 0 8px var(--atlas-green);flex-shrink:0}
+.atlas-toast--error{border-color:rgba(255,59,59,.3)}.atlas-toast--error .atlas-toast-dot{background:var(--atlas-red);box-shadow:0 0 8px var(--atlas-red)}
+.atlas-toast--info{border-color:rgba(0,212,255,.3)}.atlas-toast--info .atlas-toast-dot{background:var(--atlas-cyan);box-shadow:0 0 8px var(--atlas-cyan)}
+@keyframes atlas-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes atlas-spin{to{transform:rotate(360deg)}}
+.atlas-online-dot{width:8px;height:8px;border-radius:50%;background:var(--atlas-green);box-shadow:0 0 8px var(--atlas-green);animation:atlas-pulse 2s infinite;flex-shrink:0}
 
-/* ── HERO ── */
-.hero{
-  position:relative;padding:140px 32px 80px;
-  max-width:1100px;margin:0 auto
-}
-.hero-tag{
-  display:inline-flex;align-items:center;gap:8px;
-  font-family:var(--font-m);font-size:11px;color:var(--cyan);
-  border:1px solid rgba(0,212,255,0.25);border-radius:100px;
-  padding:6px 14px;margin-bottom:28px;letter-spacing:0.08em;
-  background:rgba(0,212,255,0.05)
-}
-.hero h1{
-  font-family:var(--font-d);font-size:clamp(40px,6vw,80px);
-  font-weight:800;line-height:1.05;
-  background:linear-gradient(135deg,#fff 30%,var(--cyan) 70%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  margin-bottom:20px
-}
-.hero-sub{
-  font-size:17px;color:var(--muted);max-width:480px;line-height:1.7;
-  margin-bottom:40px
-}
-.hero-actions{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-.btn-primary{
-  background:linear-gradient(135deg,var(--cyan),var(--violet));
-  color:#07070E;font-family:var(--font-m);font-weight:600;
-  font-size:13px;letter-spacing:0.06em;
-  padding:14px 32px;border-radius:10px;border:none;cursor:pointer;
-  transition:all 0.2s;
-}
-.btn-primary:hover{transform:translateY(-1px);box-shadow:var(--glow)}
-.btn-ghost{
-  background:transparent;color:var(--text);
-  font-family:var(--font-m);font-size:13px;letter-spacing:0.06em;
-  padding:14px 28px;border-radius:10px;
-  border:1px solid var(--border);cursor:pointer;transition:all 0.2s
-}
-.btn-ghost:hover{border-color:rgba(0,212,255,0.4);color:var(--cyan)}
-.hero-stats{
-  display:flex;gap:40px;margin-top:60px;padding-top:40px;
-  border-top:1px solid var(--border)
-}
-.stat-val{font-family:var(--font-d);font-size:28px;font-weight:700;color:var(--cyan)}
-.stat-label{font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--font-m);letter-spacing:0.06em}
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:64px;background:rgba(7,7,14,.9);backdrop-filter:blur(24px);border-bottom:1px solid var(--atlas-border)}
+.nav-logo{font-family:var(--atlas-font-mono);font-size:13px;color:var(--atlas-cyan);letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.nav-links{display:flex;gap:6px;align-items:center}
+.nav-link{font-family:var(--atlas-font-body);font-size:13px;color:var(--atlas-muted);padding:6px 14px;border-radius:6px;cursor:pointer;border:none;background:none;transition:all .2s}
+.nav-link:hover{color:var(--atlas-text);background:var(--atlas-surface2)}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-cart{display:flex;align-items:center;gap:8px;background:var(--atlas-grad-primary);color:var(--atlas-bg);font-family:var(--atlas-font-mono);font-size:12px;font-weight:600;padding:8px 18px;border-radius:8px;cursor:pointer;border:none;letter-spacing:.05em;transition:opacity .2s}
+.nav-cart:hover{opacity:.85}.cart-count{background:rgba(0,0,0,.35);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px}
+.nav-auth-btn{font-family:var(--atlas-font-mono);font-size:11px;color:var(--atlas-muted);padding:6px 14px;border-radius:7px;border:1px solid var(--atlas-border);background:none;cursor:pointer;letter-spacing:.04em;transition:all .2s}
+.nav-auth-btn:hover{color:var(--atlas-cyan);border-color:rgba(0,212,255,.35)}
 
-/* ── SEARCH BAR ── */
-.search-wrap{
-  max-width:1100px;margin:0 auto 60px;
-  padding:0 32px;position:relative;z-index:1
-}
-.search-bar{
-  display:flex;align-items:center;gap:12px;
-  background:var(--surface);
-  border:1px solid var(--border);border-radius:14px;
-  padding:14px 20px;
-  transition:border-color 0.2s;
-}
-.search-bar:focus-within{border-color:rgba(0,212,255,0.4)}
-.search-bar svg{color:var(--muted);flex-shrink:0}
-.search-bar input{
-  flex:1;background:none;border:none;outline:none;
-  color:var(--text);font-family:var(--font-b);font-size:15px;
-}
-.search-bar input::placeholder{color:var(--muted)}
-.search-filter{
-  display:flex;gap:8px;align-items:center;
-  border-left:1px solid var(--border);padding-left:14px
-}
-.filter-btn{
-  font-family:var(--font-m);font-size:11px;color:var(--muted);
-  padding:6px 12px;border-radius:6px;border:1px solid var(--border);
-  background:none;cursor:pointer;transition:all 0.2s;letter-spacing:0.04em
-}
-.filter-btn.active{color:var(--cyan);border-color:rgba(0,212,255,0.4);background:rgba(0,212,255,0.06)}
-.filter-btn:hover{color:var(--text)}
+/* SYNC BAR */
+.sync-bar{position:fixed;top:64px;left:0;right:0;z-index:90;height:26px;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(0,212,255,.05);border-bottom:1px solid rgba(0,212,255,.08);font-family:var(--atlas-font-mono);font-size:10px;color:var(--atlas-muted);letter-spacing:.08em}
 
-/* ── CATEGORIES ── */
-.section{max-width:1100px;margin:0 auto;padding:0 32px 60px}
-.section-header{
-  display:flex;justify-content:space-between;align-items:center;
-  margin-bottom:24px
-}
-.section-title{
-  font-family:var(--font-d);font-size:22px;font-weight:700
-}
-.section-link{
-  font-family:var(--font-m);font-size:12px;color:var(--cyan);
-  cursor:pointer;letter-spacing:0.06em;
-  transition:opacity 0.2s
-}
-.section-link:hover{opacity:0.7}
-.cats{display:flex;gap:10px;flex-wrap:wrap}
-.cat{
-  display:flex;align-items:center;gap:8px;
-  padding:8px 18px;border-radius:100px;
-  background:var(--surface);border:1px solid var(--border);
-  cursor:pointer;transition:all 0.2s;
-  font-size:13px;color:var(--muted)
-}
-.cat:hover,.cat.active{
-  background:rgba(0,212,255,0.08);
-  border-color:rgba(0,212,255,0.35);
-  color:var(--cyan)
-}
-.cat-emoji{font-size:16px}
+/* HERO */
+.hero{padding:140px 32px 56px;max-width:1100px;margin:0 auto;position:relative;z-index:1}
+.hero-tag{display:inline-flex;align-items:center;gap:8px;font-family:var(--atlas-font-mono);font-size:11px;color:var(--atlas-cyan);border:1px solid rgba(0,212,255,.22);border-radius:100px;padding:5px 14px;margin-bottom:22px;letter-spacing:.08em;background:rgba(0,212,255,.05)}
+.hero h1{font-family:var(--atlas-font-display);font-size:clamp(38px,6vw,76px);font-weight:800;line-height:1.05;background:linear-gradient(135deg,#fff 30%,var(--atlas-cyan) 70%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
+.hero-sub{font-size:16px;color:var(--atlas-muted);max-width:460px;line-height:1.7;margin-bottom:32px}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap}
+.hero-stats{display:flex;gap:36px;margin-top:48px;padding-top:36px;border-top:1px solid var(--atlas-border)}
+.stat-val{font-family:var(--atlas-font-display);font-size:26px;font-weight:700;color:var(--atlas-cyan)}
+.stat-label{font-size:11px;color:var(--atlas-muted);margin-top:2px;font-family:var(--atlas-font-mono);letter-spacing:.06em}
 
-/* ── RESTAURANT GRID ── */
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-  gap:20px
-}
-.card{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:16px;overflow:hidden;
-  cursor:pointer;transition:all 0.25s;
-  position:relative
-}
-.card:hover{
-  border-color:rgba(0,212,255,0.3);
-  transform:translateY(-3px);
-  box-shadow:0 8px 40px rgba(0,0,0,0.4),0 0 0 1px rgba(0,212,255,0.1)
-}
-.card-img{
-  width:100%;height:160px;object-fit:cover;
-  background:linear-gradient(135deg,var(--surface2) 0%,#1a1a30 100%);
-  display:flex;align-items:center;justify-content:center;
-  font-size:48px;position:relative;overflow:hidden
-}
-.card-img::after{
-  content:'';position:absolute;inset:0;
-  background:linear-gradient(to bottom,transparent 50%,rgba(7,7,14,0.6));
-}
-.card-badges{
-  position:absolute;top:12px;left:12px;
-  display:flex;gap:6px;z-index:1
-}
-.badge{
-  font-family:var(--font-m);font-size:10px;letter-spacing:0.06em;
-  padding:4px 10px;border-radius:100px;font-weight:600
-}
-.badge-open{background:rgba(0,255,136,0.15);color:var(--green);border:1px solid rgba(0,255,136,0.3)}
-.badge-new{background:rgba(0,212,255,0.15);color:var(--cyan);border:1px solid rgba(0,212,255,0.3)}
-.badge-popular{background:rgba(255,107,53,0.15);color:var(--orange);border:1px solid rgba(255,107,53,0.3)}
-.badge-free{background:rgba(123,47,255,0.15);color:#B080FF;border:1px solid rgba(123,47,255,0.3)}
-.card-body{padding:16px}
-.card-name{font-family:var(--font-d);font-size:16px;font-weight:700;margin-bottom:6px}
-.card-meta{
-  display:flex;align-items:center;gap:14px;
-  font-size:12px;color:var(--muted);font-family:var(--font-m);
-  margin-bottom:12px
-}
-.card-meta-item{display:flex;align-items:center;gap:4px}
-.card-tags{display:flex;gap:6px;flex-wrap:wrap}
-.tag{
-  font-size:11px;color:var(--muted);
-  background:var(--surface2);padding:4px 10px;
-  border-radius:6px;font-family:var(--font-b)
-}
-.card-footer{
-  display:flex;align-items:center;justify-content:space-between;
-  margin-top:14px;padding-top:14px;
-  border-top:1px solid var(--border)
-}
-.card-price{font-size:12px;color:var(--muted);font-family:var(--font-m)}
-.card-price span{color:var(--green);font-size:11px;margin-left:6px}
-.add-btn{
-  width:30px;height:30px;border-radius:8px;
-  background:rgba(0,212,255,0.1);
-  border:1px solid rgba(0,212,255,0.25);
-  color:var(--cyan);font-size:18px;
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:all 0.2s
-}
-.add-btn:hover{background:var(--cyan);color:#07070E}
+/* SEARCH */
+.search-wrap{max-width:1100px;margin:0 auto 44px;padding:0 32px;position:relative;z-index:1}
+.search-bar{display:flex;align-items:center;gap:10px;background:var(--atlas-surface);border:1px solid var(--atlas-border);border-radius:12px;padding:12px 18px;transition:border-color .2s}
+.search-bar:focus-within{border-color:rgba(0,212,255,.4)}
+.search-bar input{flex:1;background:none;border:none;outline:none;color:var(--atlas-text);font-family:var(--atlas-font-body);font-size:15px}
+.search-bar input::placeholder{color:var(--atlas-muted)}
+.filter-row{display:flex;gap:6px;border-left:1px solid var(--atlas-border);padding-left:12px}
+.filter-btn{font-family:var(--atlas-font-mono);font-size:11px;color:var(--atlas-muted);padding:5px 12px;border-radius:6px;border:1px solid var(--atlas-border);background:none;cursor:pointer;transition:all .2s;letter-spacing:.04em}
+.filter-btn.active{color:var(--atlas-cyan);border-color:rgba(0,212,255,.4);background:rgba(0,212,255,.06)}
 
-/* ── FEATURED BANNER ── */
-.banner{
-  max-width:1100px;margin:0 auto 60px;padding:0 32px
-}
-.banner-inner{
-  background:linear-gradient(135deg,rgba(0,212,255,0.08) 0%,rgba(123,47,255,0.12) 100%);
-  border:1px solid rgba(0,212,255,0.2);
-  border-radius:20px;padding:40px;
-  display:flex;align-items:center;justify-content:space-between;
-  position:relative;overflow:hidden
-}
-.banner-inner::before{
-  content:'';position:absolute;
-  top:-60px;right:-60px;
-  width:200px;height:200px;
-  border-radius:50%;
-  background:radial-gradient(circle,rgba(0,212,255,0.15),transparent 70%)
-}
-.banner-content{max-width:400px}
-.banner-eyebrow{
-  font-family:var(--font-m);font-size:11px;color:var(--cyan);
-  letter-spacing:0.12em;text-transform:uppercase;margin-bottom:12px
-}
-.banner-title{
-  font-family:var(--font-d);font-size:28px;font-weight:800;
-  margin-bottom:10px
-}
-.banner-sub{font-size:14px;color:var(--muted);line-height:1.6}
+/* SECTION */
+.section{max-width:1100px;margin:0 auto;padding:0 32px 48px;position:relative;z-index:1}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.section-title{font-family:var(--atlas-font-display);font-size:20px;font-weight:700}
+.cats{display:flex;gap:8px;flex-wrap:wrap}
+.cat{display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:100px;background:var(--atlas-surface);border:1px solid var(--atlas-border);cursor:pointer;transition:all .2s;font-size:13px;color:var(--atlas-muted)}
+.cat:hover,.cat.active{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.3);color:var(--atlas-cyan)}
 
-/* ── MODAL ── */
-.modal-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,0.8);
-  backdrop-filter:blur(8px);z-index:200;
-  display:flex;align-items:center;justify-content:center;
-  opacity:0;pointer-events:none;transition:opacity 0.2s
-}
+/* GRID */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+.card{background:var(--atlas-surface);border:1px solid var(--atlas-border);border-radius:16px;overflow:hidden;cursor:pointer;transition:all .25s;position:relative}
+.card:hover{border-color:rgba(0,212,255,.3);transform:translateY(-3px);box-shadow:0 8px 40px rgba(0,0,0,.4)}
+.card.closed{opacity:.5;pointer-events:none}
+.card-img{width:100%;height:148px;background:linear-gradient(135deg,var(--atlas-surface2),#1a1a30);display:flex;align-items:center;justify-content:center;font-size:44px;position:relative}
+.card-img::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 50%,rgba(7,7,14,.5))}
+.card-badges{position:absolute;top:10px;left:10px;display:flex;gap:5px;z-index:1}
+.card-body{padding:14px}
+.card-name{font-family:var(--atlas-font-display);font-size:15px;font-weight:700;margin-bottom:5px}
+.card-meta{display:flex;gap:12px;font-size:11px;color:var(--atlas-muted);font-family:var(--atlas-font-mono);margin-bottom:10px}
+.card-tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag{font-size:11px;color:var(--atlas-muted);background:var(--atlas-surface2);padding:3px 9px;border-radius:5px}
+.card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--atlas-border)}
+.add-btn{width:28px;height:28px;border-radius:7px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);color:var(--atlas-cyan);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s}
+.add-btn:hover{background:var(--atlas-cyan);color:var(--atlas-bg)}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .modal-overlay.open{opacity:1;pointer-events:all}
-.modal{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:20px;width:90%;max-width:560px;
-  max-height:85vh;overflow-y:auto;
-  transform:translateY(20px);transition:transform 0.25s
-}
+.modal{background:var(--atlas-surface);border:1px solid var(--atlas-border);border-radius:20px;width:90%;max-width:540px;max-height:88vh;overflow-y:auto;transform:translateY(24px);transition:transform .25s}
 .modal-overlay.open .modal{transform:translateY(0)}
-.modal-header{
-  padding:24px 24px 0;
-  display:flex;justify-content:space-between;align-items:flex-start
-}
-.modal-title{font-family:var(--font-d);font-size:22px;font-weight:700}
-.modal-close{
-  background:var(--surface2);border:none;color:var(--muted);
-  width:32px;height:32px;border-radius:8px;cursor:pointer;
-  font-size:16px;display:flex;align-items:center;justify-content:center;
-  transition:all 0.2s
-}
-.modal-close:hover{color:var(--text);background:var(--surface)}
-.modal-body{padding:20px 24px 24px}
-.menu-section-title{
-  font-family:var(--font-m);font-size:11px;color:var(--cyan);
-  letter-spacing:0.1em;text-transform:uppercase;
-  margin:20px 0 12px
-}
-.menu-item{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:14px 0;border-bottom:1px solid var(--border)
-}
-.menu-item:last-child{border-bottom:none}
-.menu-item-info{flex:1}
-.menu-item-name{font-size:14px;font-weight:500;margin-bottom:4px}
-.menu-item-desc{font-size:12px;color:var(--muted)}
-.menu-item-right{display:flex;align-items:center;gap:12px}
-.menu-item-price{font-family:var(--font-m);font-size:13px;color:var(--cyan)}
-.qty-ctrl{
-  display:flex;align-items:center;gap:8px;
-  background:var(--surface2);border-radius:8px;padding:4px 8px
-}
-.qty-btn{
-  background:none;border:none;color:var(--muted);
-  cursor:pointer;font-size:16px;width:20px;text-align:center;
-  transition:color 0.15s
-}
-.qty-btn:hover{color:var(--cyan)}
-.qty-val{font-family:var(--font-m);font-size:13px;min-width:16px;text-align:center}
+.modal-top{padding:22px 22px 0;display:flex;justify-content:space-between;align-items:flex-start}
+.modal-title{font-family:var(--atlas-font-display);font-size:20px;font-weight:700}
+.modal-close{background:var(--atlas-surface2);border:none;color:var(--atlas-muted);width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.modal-close:hover{color:var(--atlas-text)}
+.modal-body{padding:18px 22px 22px}
+.menu-cat-title{font-family:var(--atlas-font-mono);font-size:10px;color:var(--atlas-cyan);letter-spacing:.1em;text-transform:uppercase;margin:18px 0 10px}
+.menu-item{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--atlas-border)}
+.menu-item.unavailable{opacity:.4;pointer-events:none}.menu-item:last-child{border-bottom:none}
+.menu-item-name{font-size:13px;font-weight:500}.menu-item-desc{font-size:11px;color:var(--atlas-muted);margin-top:2px}
+.menu-item-price{font-family:var(--atlas-font-mono);font-size:13px;color:var(--atlas-cyan)}
+.qty-ctrl{display:flex;align-items:center;gap:8px;background:var(--atlas-surface2);border-radius:8px;padding:4px 8px}
+.qty-btn{background:none;border:none;color:var(--atlas-muted);cursor:pointer;font-size:16px;width:20px;text-align:center;transition:color .15s}.qty-btn:hover{color:var(--atlas-cyan)}
+.qty-val{font-family:var(--atlas-font-mono);font-size:12px;min-width:14px;text-align:center}
 
-/* ── CART SIDEBAR ── */
-.cart-sidebar{
-  position:fixed;top:64px;right:0;bottom:0;width:340px;
-  background:var(--surface);border-left:1px solid var(--border);
-  z-index:90;transform:translateX(100%);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
-  display:flex;flex-direction:column
-}
+/* CART */
+.cart-sidebar{position:fixed;top:64px;right:0;bottom:0;width:320px;background:var(--atlas-surface);border-left:1px solid var(--atlas-border);z-index:95;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
 .cart-sidebar.open{transform:translateX(0)}
-.cart-header{padding:24px;border-bottom:1px solid var(--border)}
-.cart-title{font-family:var(--font-d);font-size:18px;font-weight:700}
-.cart-subtitle{font-size:12px;color:var(--muted);font-family:var(--font-m);margin-top:4px}
-.cart-items{flex:1;overflow-y:auto;padding:16px}
-.cart-item{
-  display:flex;gap:12px;padding:12px 0;
-  border-bottom:1px solid var(--border)
-}
-.cart-item-qty{
-  background:rgba(0,212,255,0.1);
-  color:var(--cyan);font-family:var(--font-m);font-size:12px;
-  width:28px;height:28px;border-radius:6px;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0
-}
-.cart-item-info{flex:1}
-.cart-item-name{font-size:13px;font-weight:500}
-.cart-item-rest{font-size:11px;color:var(--muted);font-family:var(--font-m)}
-.cart-item-price{font-family:var(--font-m);font-size:13px;color:var(--cyan)}
-.cart-empty{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  height:200px;color:var(--muted);gap:12px
-}
-.cart-empty-icon{font-size:48px}
-.cart-empty-text{font-size:13px;font-family:var(--font-m);letter-spacing:0.06em}
-.cart-footer{padding:20px;border-top:1px solid var(--border)}
-.cart-total-row{
-  display:flex;justify-content:space-between;align-items:center;
-  margin-bottom:8px;font-size:13px;color:var(--muted)
-}
-.cart-total-row.main{
-  color:var(--text);font-family:var(--font-d);
-  font-size:18px;font-weight:700;margin-top:12px;padding-top:12px;
-  border-top:1px solid var(--border)
-}
-.cart-total-row .free{color:var(--green);font-size:12px;font-family:var(--font-m)}
-.checkout-btn{
-  width:100%;margin-top:16px;
-  background:linear-gradient(135deg,var(--cyan),var(--violet));
-  color:#07070E;font-family:var(--font-m);font-size:13px;font-weight:600;
-  letter-spacing:0.06em;padding:14px;border-radius:10px;
-  border:none;cursor:pointer;transition:opacity 0.2s
-}
-.checkout-btn:hover{opacity:0.85}
-.checkout-btn:disabled{opacity:0.4;cursor:not-allowed}
+.cart-header{padding:20px;border-bottom:1px solid var(--atlas-border)}
+.cart-title{font-family:var(--atlas-font-display);font-size:17px;font-weight:700}
+.cart-sub{font-size:11px;color:var(--atlas-muted);font-family:var(--atlas-font-mono);margin-top:3px}
+.cart-items{flex:1;overflow-y:auto;padding:14px}
+.cart-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:180px;color:var(--atlas-muted);gap:10px}
+.cart-empty-icon{font-size:38px}.cart-empty-text{font-family:var(--atlas-font-mono);font-size:11px;letter-spacing:.06em}
+.cart-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--atlas-border)}
+.cart-item-qty{background:rgba(0,212,255,.1);color:var(--atlas-cyan);font-family:var(--atlas-font-mono);font-size:11px;width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cart-item-info{flex:1}.cart-item-name{font-size:12px;font-weight:500}.cart-item-rest{font-size:10px;color:var(--atlas-muted);font-family:var(--atlas-font-mono)}
+.cart-item-price{font-family:var(--atlas-font-mono);font-size:12px;color:var(--atlas-cyan)}
+.cart-footer{padding:18px;border-top:1px solid var(--atlas-border)}
+.cart-total-row{display:flex;justify-content:space-between;font-size:12px;color:var(--atlas-muted);margin-bottom:6px}
+.cart-total-row.main{color:var(--atlas-text);font-family:var(--atlas-font-display);font-size:17px;font-weight:700;margin-top:10px;padding-top:10px;border-top:1px solid var(--atlas-border)}
+.free{color:var(--atlas-green);font-size:11px;font-family:var(--atlas-font-mono)}
 
-/* ── MISSION STRIP ── */
-.mission{
-  border-top:1px solid var(--border);
-  padding:40px 32px;margin-top:20px;
-  display:flex;align-items:center;justify-content:center;gap:60px;
-  flex-wrap:wrap
-}
-.mission-item{
-  display:flex;align-items:center;gap:14px;
-  font-size:13px;color:var(--muted)
-}
-.mission-icon{
-  font-size:22px;width:44px;height:44px;
-  border-radius:10px;background:var(--surface);
-  border:1px solid var(--border);
-  display:flex;align-items:center;justify-content:center
-}
-.mission-text strong{color:var(--text);display:block;font-size:14px;font-family:var(--font-d)}
+/* ORDER TRACKER */
+.tracker{padding:16px;background:var(--atlas-surface2);border-radius:12px;margin-top:14px}
+.tracker-title{font-family:var(--atlas-font-mono);font-size:10px;color:var(--atlas-muted);letter-spacing:.1em;margin-bottom:12px}
+.tracker-step{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px;color:var(--atlas-muted);transition:color .3s}
+.tracker-step.done{color:var(--atlas-text)}.tracker-step.active{color:var(--atlas-cyan)}
+.tracker-dot{width:10px;height:10px;border-radius:50%;background:var(--atlas-surface3);flex-shrink:0;transition:all .3s}
+.tracker-step.done .tracker-dot{background:var(--atlas-green)}.tracker-step.active .tracker-dot{background:var(--atlas-cyan);box-shadow:0 0 8px var(--atlas-cyan);animation:atlas-pulse 1.5s infinite}
+@keyframes atlas-pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-/* ── FOOTER ── */
-footer{
-  border-top:1px solid var(--border);
-  padding:24px 32px;
-  display:flex;align-items:center;justify-content:space-between;
-  font-size:11px;color:var(--muted);font-family:var(--font-m);
-  flex-wrap:wrap;gap:12px
-}
-footer a{color:var(--muted);text-decoration:none}
-footer a:hover{color:var(--cyan)}
-.footer-brand{color:var(--cyan);letter-spacing:0.1em}
+/* BANNER */
+.banner{max-width:1100px;margin:0 auto 48px;padding:0 32px;position:relative;z-index:1}
+.banner-inner{background:linear-gradient(135deg,rgba(0,212,255,.07),rgba(123,47,255,.1));border:1px solid rgba(0,212,255,.18);border-radius:20px;padding:36px;display:flex;align-items:center;justify-content:space-between;overflow:hidden;position:relative}
+.banner-inner::before{content:'';position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,.12),transparent 70%)}
+.banner-eyebrow{font-family:var(--atlas-font-mono);font-size:10px;color:var(--atlas-cyan);letter-spacing:.12em;margin-bottom:10px}
+.banner-title{font-family:var(--atlas-font-display);font-size:26px;font-weight:800;margin-bottom:8px}
+.banner-sub{font-size:13px;color:var(--atlas-muted);line-height:1.6;max-width:340px}
 
-/* ── TOAST ── */
-.toast{
-  position:fixed;bottom:24px;right:24px;z-index:300;
-  background:var(--surface);border:1px solid rgba(0,255,136,0.3);
-  border-radius:10px;padding:12px 20px;
-  display:flex;align-items:center;gap:10px;
-  font-size:13px;font-family:var(--font-m);
-  transform:translateY(80px);opacity:0;
-  transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1)
-}
-.toast.show{transform:translateY(0);opacity:1}
-.toast-dot{
-  width:8px;height:8px;border-radius:50%;
-  background:var(--green);box-shadow:0 0 8px var(--green)
-}
+/* AUTH MODAL */
+.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(10px);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.auth-overlay.open{opacity:1;pointer-events:all}
+.auth-modal{background:var(--atlas-surface);border:1px solid var(--atlas-border);border-radius:20px;width:90%;max-width:400px;padding:30px;transform:translateY(20px);transition:transform .25s}
+.auth-overlay.open .auth-modal{transform:translateY(0)}
+.auth-title{font-family:var(--atlas-font-display);font-size:22px;font-weight:800;margin-bottom:5px;background:var(--atlas-grad-primary);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.auth-sub{font-size:13px;color:var(--atlas-muted);margin-bottom:22px;line-height:1.6}
+.auth-form{display:flex;flex-direction:column;gap:14px}
+.auth-error{background:rgba(255,59,59,.1);border:1px solid rgba(255,59,59,.25);border-radius:8px;padding:9px 13px;font-size:12px;color:var(--atlas-red);display:none}
+.auth-error.show{display:block}
 
-@media(max-width:600px){
-  nav{padding:0 16px}
-  .hero,.search-wrap,.section,.banner{padding-left:16px;padding-right:16px}
-  .hero-stats{gap:20px;flex-wrap:wrap}
-  .cart-sidebar{width:100%}
-  .mission{gap:24px;justify-content:flex-start}
-}
+/* MISSION */
+.mission{border-top:1px solid var(--atlas-border);padding:36px 32px;display:flex;align-items:center;justify-content:center;gap:44px;flex-wrap:wrap}
+.mission-item{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--atlas-muted)}
+.mission-icon{font-size:20px;width:40px;height:40px;border-radius:9px;background:var(--atlas-surface);border:1px solid var(--atlas-border);display:flex;align-items:center;justify-content:center}
+.mission-text strong{color:var(--atlas-text);display:block;font-size:13px;font-family:var(--atlas-font-display)}
+footer{border-top:1px solid var(--atlas-border);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--atlas-muted);font-family:var(--atlas-font-mono);flex-wrap:wrap;gap:10px}
+footer a{color:var(--atlas-muted);text-decoration:none}footer a:hover{color:var(--atlas-cyan)}
+@media(max-width:600px){nav{padding:0 16px}.hero,.search-wrap,.section,.banner{padding-left:16px;padding-right:16px}.cart-sidebar{width:100%}.mission{gap:18px;justify-content:flex-start}}
 </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
 <nav>
-  <div class="nav-logo">
-    <div class="nav-logo-dot"></div>
-    ATLAS DELIVERY
-  </div>
+  <div class="nav-logo"><div class="atlas-online-dot"></div>ATLAS DELIVERY</div>
   <div class="nav-links">
-    <button class="nav-link" onclick="showSection('home')">Hem</button>
-    <button class="nav-link" onclick="showSection('home')">Utforska</button>
-    <button class="nav-link">Om oss</button>
+    <button class="nav-link" onclick="document.querySelector('.search-wrap').scrollIntoView({behavior:'smooth'})">Utforska</button>
+    <button class="nav-link" onclick="showMyOrders()">Mina ordrar</button>
   </div>
-  <button class="nav-cart" onclick="toggleCart()">
-    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-    KORG
-    <div class="cart-count" id="cartCount">0</div>
-  </button>
+  <div class="nav-right">
+    <button class="nav-auth-btn" id="authBtn" onclick="toggleAuth()">Logga in</button>
+    <button class="nav-cart" onclick="toggleCart()">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+      KORG <div class="cart-count" id="cartCount">0</div>
+    </button>
+  </div>
 </nav>
 
-<!-- HERO -->
-<div class="hero" id="sectionHome">
-  <div class="hero-tag">
-    <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span>
-    Nu tillgänglig i Sverige
-  </div>
+<div class="sync-bar">
+  <div class="atlas-online-dot"></div>
+  <span id="syncStatus">ANSLUTER TILL SUPABASE...</span>
+</div>
+
+<div class="hero">
+  <div class="hero-tag"><span style="width:6px;height:6px;border-radius:50%;background:var(--atlas-green);display:inline-block"></span>Live i Sverige</div>
   <h1>Mat utan<br>mellanhänder</h1>
-  <p class="hero-sub">Atlas Delivery är plattformen som kopplar dig direkt med restauranger — utan prisökningar, utan krångel. En del av Atlas Valley-ekosystemet.</p>
+  <p class="hero-sub">Atlas Delivery kopplar dig direkt med restauranger — utan prisökningar. Del av Atlas Valley / Abkär-SE.</p>
   <div class="hero-actions">
-    <button class="btn-primary" onclick="document.querySelector('.search-wrap').scrollIntoView({behavior:'smooth'})">Beställ nu</button>
-    <button class="btn-ghost">Läs mer om oss</button>
+    <button class="atlas-btn-primary" onclick="document.querySelector('.search-wrap').scrollIntoView({behavior:'smooth'})">Beställ nu</button>
+    <button class="atlas-btn-ghost">Om Atlas Valley</button>
   </div>
   <div class="hero-stats">
-    <div>
-      <div class="stat-val">0%</div>
-      <div class="stat-label">PRISPÅLÄGG</div>
-    </div>
-    <div>
-      <div class="stat-val">24/7</div>
-      <div class="stat-label">TILLGÄNGLIGHET</div>
-    </div>
-    <div>
-      <div class="stat-val">100%</div>
-      <div class="stat-label">ÖPPET SYSTEM</div>
-    </div>
+    <div><div class="stat-val">0%</div><div class="stat-label">PRISPÅLÄGG</div></div>
+    <div><div class="stat-val" id="openCount">—</div><div class="stat-label">ÖPPNA NU</div></div>
+    <div><div class="stat-val">100%</div><div class="stat-label">ÖPPET SYSTEM</div></div>
   </div>
 </div>
 
-<!-- BANNER -->
 <div class="banner">
   <div class="banner-inner">
-    <div class="banner-content">
+    <div>
       <div class="banner-eyebrow">// ATLAS VALLEY MISSION</div>
       <div class="banner-title">Mat är en rättighet,<br>inte en lyx</div>
-      <div class="banner-sub">Vi är en del av Abkär-SE — ett system för automation och välbefinnande för alla. Målet är enkelt: avskaffa hunger i världen.</div>
+      <div class="banner-sub">Del av Abkär-SE — automationssystem för allas välbefinnande och en bättre framtid. Målet: avskaffa hunger i världen.</div>
     </div>
-    <div style="font-size:72px;opacity:0.6">🌍</div>
+    <div style="font-size:60px;opacity:.5">🌍</div>
   </div>
 </div>
 
-<!-- SEARCH -->
 <div class="search-wrap">
   <div class="search-bar">
-    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input type="text" placeholder="Sök restauranger, rätter..." id="searchInput" oninput="filterRestaurants()">
-    <div class="search-filter">
-      <button class="filter-btn active" onclick="setFilter('alla',this)">Alla</button>
-      <button class="filter-btn" onclick="setFilter('snabb',this)">Snabb</button>
-      <button class="filter-btn" onclick="setFilter('ny',this)">Nytt</button>
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--atlas-muted);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" placeholder="Sök restauranger, rätter..." id="searchInput" oninput="renderGrid()">
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="setFilter('all',this)">Alla</button>
+      <button class="filter-btn" onclick="setFilter('fast',this)">Snabb</button>
+      <button class="filter-btn" onclick="setFilter('open',this)">Öppna</button>
     </div>
   </div>
 </div>
 
-<!-- CATEGORIES -->
 <div class="section">
-  <div class="section-header">
-    <div class="section-title">Kategorier</div>
-  </div>
-  <div class="cats">
-    <div class="cat active" onclick="setCat('alla',this)"><span class="cat-emoji">🍽️</span> Alla</div>
-    <div class="cat" onclick="setCat('pizza',this)"><span class="cat-emoji">🍕</span> Pizza</div>
-    <div class="cat" onclick="setCat('sushi',this)"><span class="cat-emoji">🍱</span> Sushi</div>
-    <div class="cat" onclick="setCat('burgare',this)"><span class="cat-emoji">🍔</span> Burgare</div>
-    <div class="cat" onclick="setCat('asiatisk',this)"><span class="cat-emoji">🥡</span> Asiatisk</div>
-    <div class="cat" onclick="setCat('hälsa',this)"><span class="cat-emoji">🥗</span> Hälsa</div>
-    <div class="cat" onclick="setCat('dessert',this)"><span class="cat-emoji">🍰</span> Dessert</div>
-    <div class="cat" onclick="setCat('kebab',this)"><span class="cat-emoji">🥙</span> Kebab</div>
+  <div class="section-header"><div class="section-title">Kategorier</div></div>
+  <div class="cats" id="catRow">
+    <div class="cat active" data-cat="all" onclick="setCat('all',this)">🍽️ Alla</div>
+    <div class="cat" data-cat="sushi" onclick="setCat('sushi',this)">🍱 Sushi</div>
+    <div class="cat" data-cat="burgare" onclick="setCat('burgare',this)">🍔 Burgare</div>
+    <div class="cat" data-cat="pizza" onclick="setCat('pizza',this)">🍕 Pizza</div>
+    <div class="cat" data-cat="kebab" onclick="setCat('kebab',this)">🥙 Kebab</div>
   </div>
 </div>
 
-<!-- RESTAURANTS -->
 <div class="section">
   <div class="section-header">
-    <div class="section-title">Populära restauranger</div>
-    <div class="section-link">Visa alla →</div>
+    <div class="section-title">Restauranger</div>
+    <div id="restCount" style="font-family:var(--atlas-font-mono);font-size:11px;color:var(--atlas-muted)"></div>
   </div>
-  <div class="grid" id="restaurantGrid"></div>
+  <div class="grid" id="restaurantGrid">
+    <div style="grid-column:1/-1;padding:60px;text-align:center;color:var(--atlas-muted);font-family:var(--atlas-font-mono);font-size:12px">
+      <div style="width:22px;height:22px;border:2px solid rgba(0,212,255,.2);border-top-color:var(--atlas-cyan);border-radius:50%;animation:atlas-spin .7s linear infinite;margin:0 auto 12px"></div>
+      LADDAR RESTAURANGER...
+    </div>
+  </div>
 </div>
 
-<!-- MISSION STRIP -->
 <div class="mission">
-  <div class="mission-item">
-    <div class="mission-icon">🚫</div>
-    <div class="mission-text"><strong>Inga prisökningar</strong>Du betalar restaurangens pris</div>
-  </div>
-  <div class="mission-item">
-    <div class="mission-icon">🔓</div>
-    <div class="mission-text"><strong>Öppen plattform</strong>Alla restauranger välkomna</div>
-  </div>
-  <div class="mission-item">
-    <div class="mission-icon">⚡</div>
-    <div class="mission-text"><strong>Snabb leverans</strong>Realtidsspårning</div>
-  </div>
-  <div class="mission-item">
-    <div class="mission-icon">🌍</div>
-    <div class="mission-text"><strong>Atlas Valley</strong>Del av ett större uppdrag</div>
-  </div>
+  <div class="mission-item"><div class="mission-icon">🚫</div><div class="mission-text"><strong>Inga prisökningar</strong>Du betalar restaurangens pris</div></div>
+  <div class="mission-item"><div class="mission-icon">⚡</div><div class="mission-text"><strong>Realtid</strong>Live sync via Supabase</div></div>
+  <div class="mission-item"><div class="mission-icon">🔓</div><div class="mission-text"><strong>Öppen plattform</strong>Alla restauranger välkomna</div></div>
+  <div class="mission-item"><div class="mission-icon">🌍</div><div class="mission-text"><strong>Atlas Valley</strong>Del av ett större uppdrag</div></div>
 </div>
 
 <footer>
-  <div><span class="footer-brand">ATLAS DELIVERY</span> — del av Atlas Valley / Abkär-SE</div>
-  <div style="display:flex;gap:20px">
-    <a href="#">Integritetspolicy</a>
-    <a href="#">Kontakt</a>
-    <a href="#">Bli partner</a>
-    <a href="https://github.com/ABKAR-SE/atlas-delivery" target="_blank">GitHub</a>
+  <span style="color:var(--atlas-cyan);letter-spacing:.1em">ATLAS DELIVERY</span> — Atlas Valley / Abkär-SE
+  <div style="display:flex;gap:16px">
+    <a href="https://abkar-se.github.io/atlas-delivery-restaurant/">Restaurant ↗</a>
+    <a href="https://abkar-se.github.io/atlas-delivery-sudo/">Admin ↗</a>
+    <a href="https://abkar-se.github.io/atlas-delivery-rider/">Rider ↗</a>
   </div>
 </footer>
 
-<!-- MODAL -->
-<div class="modal-overlay" id="modal" onclick="closeModal(event)">
-  <div class="modal" id="modalContent">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title" id="modalTitle">—</div>
-        <div style="font-size:12px;color:var(--muted);font-family:var(--font-m);margin-top:4px" id="modalMeta">—</div>
-      </div>
+<!-- RESTAURANT MODAL -->
+<div class="modal-overlay" id="modal" onclick="if(event.target.id==='modal')closeModal()">
+  <div class="modal">
+    <div class="modal-top">
+      <div><div class="modal-title" id="modalTitle">—</div><div style="font-size:11px;color:var(--atlas-muted);font-family:var(--atlas-font-mono);margin-top:3px" id="modalMeta">—</div></div>
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
 
-<!-- CART SIDEBAR -->
+<!-- ORDER TRACKER MODAL -->
+<div class="modal-overlay" id="trackerModal" onclick="if(event.target.id==='trackerModal')closeTracker()">
+  <div class="modal">
+    <div class="modal-top">
+      <div><div class="modal-title" id="trackerTitle">Spåra order</div></div>
+      <button class="modal-close" onclick="closeTracker()">✕</button>
+    </div>
+    <div class="modal-body" id="trackerBody"></div>
+  </div>
+</div>
+
+<!-- CART -->
 <div class="cart-sidebar" id="cartSidebar">
   <div class="cart-header">
     <div class="cart-title">Din korg</div>
-    <div class="cart-subtitle" id="cartRestaurant">Välj en restaurang</div>
+    <div class="cart-sub" id="cartRestName">Tom</div>
   </div>
   <div class="cart-items" id="cartItems">
-    <div class="cart-empty">
-      <div class="cart-empty-icon">🛒</div>
-      <div class="cart-empty-text">KORGEN ÄR TOM</div>
-    </div>
+    <div class="cart-empty"><div class="cart-empty-icon">🛒</div><div class="cart-empty-text">KORGEN ÄR TOM</div></div>
   </div>
   <div class="cart-footer">
     <div class="cart-total-row"><span>Leverans</span><span class="free">GRATIS</span></div>
     <div class="cart-total-row"><span>Serviceavgift</span><span class="free">0 KR</span></div>
-    <div class="cart-total-row main" id="cartTotalRow"><span>Totalt</span><span id="cartTotal">0 kr</span></div>
-    <button class="checkout-btn" id="checkoutBtn" disabled onclick="checkout()">TILL KASSAN</button>
+    <div class="cart-total-row main"><span>Totalt</span><span id="cartTotal">0 kr</span></div>
+    <button class="atlas-btn-primary" style="width:100%;margin-top:14px" id="checkoutBtn" disabled onclick="openCheckout()">TILL KASSAN</button>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="auth-overlay" id="authOverlay" onclick="if(event.target.id==='authOverlay')toggleAuth()">
+  <div class="auth-modal">
+    <div class="auth-title" id="authTitle">Logga in</div>
+    <div class="auth-sub" id="authSubText">Logga in för att spåra dina beställningar</div>
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-form" id="authForm"></div>
+    <div style="font-size:12px;color:var(--atlas-muted);text-align:center;margin-top:12px">
+      <a id="authToggleLink" onclick="toggleAuthMode()" style="color:var(--atlas-cyan);cursor:pointer">Skapa konto</a>
+    </div>
   </div>
 </div>
 
 <!-- TOAST -->
-<div class="toast" id="toast">
-  <div class="toast-dot"></div>
-  <span id="toastMsg">Tillagd i korgen!</span>
-</div>
+<div class="atlas-toast" id="atlas-toast"><div class="atlas-toast-dot"></div><span id="atlas-toast-msg">—</span></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-// ── DATA ──
-const restaurants = [
-  { id:1, name:"Norrmalm Sushi", cat:"sushi", emoji:"🍱", tags:["Japansk","Sushi","Maki"], time:25, rating:4.8, reviews:312, badges:["open","popular"], items:[
-    {cat:"Rullar", items:[
-      {n:"California Roll (8 bitar)",d:"Krabba, avokado, gurka",p:115},
-      {n:"Spicy Tuna Roll",d:"Tonfisk, jalapeño, sriracha",p:125},
-      {n:"Vegetarian Maki",d:"Gurka, avokado, paprika",p:95},
-    ]},
-    {cat:"Nigiri & Sashimi", items:[
-      {n:"Lax Nigiri (2 bitar)",d:"Färsk lax, sushiris",p:65},
-      {n:"Tonfisk Sashimi (5 bitar)",d:"Premium tonfisk",p:135},
-    ]}
-  ]},
-  { id:2, name:"Södermalm Burger Co.", cat:"burgare", emoji:"🍔", tags:["Burgare","Amerikanskt","Fast food"], time:20, rating:4.6, reviews:208, badges:["open","new"], items:[
-    {cat:"Burgare", items:[
-      {n:"Classic Smash",d:"Dubbel patty, ost, syltlök",p:145},
-      {n:"Atlas Burger",d:"Wagyu, tryffel, ruccola",p:189},
-      {n:"Veggie Crunch",d:"Kikärtspatty, hummus, fetaost",p:135},
-    ]},
-    {cat:"Sidor", items:[
-      {n:"Friterade sötpotatisar",d:"Med chilidipp",p:55},
-      {n:"Onion rings",d:"Krispiga, med ranch",p:45},
-    ]}
-  ]},
-  { id:3, name:"Gamla Stan Pizza", cat:"pizza", emoji:"🍕", tags:["Pizza","Italienskt","Ugn"], time:30, rating:4.7, reviews:445, badges:["open"], items:[
-    {cat:"Pizza (30cm)", items:[
-      {n:"Margherita",d:"San Marzano-tomat, mozzarella, basilika",p:115},
-      {n:"Diavola",d:"Salami, jalapeño, kalamataoliv",p:145},
-      {n:"Quattro Formaggi",d:"Fyra ostar, ruccola, honung",p:155},
-    ]},
-  ]},
-  { id:4, name:"Kungsholmen Kebab", cat:"kebab", emoji:"🥙", tags:["Kebab","Turkiskt","Snabbmat"], time:15, rating:4.5, reviews:567, badges:["open","popular"], items:[
-    {cat:"Kebab", items:[
-      {n:"Kebab i bröd",d:"Nötkött, vitlökssås, grönsaksmix",p:89},
-      {n:"Kebabpizza",d:"Stor, med stark sås",p:119},
-      {n:"Assiett",d:"Ris, kött, sallad, sås",p:135},
-    ]}
-  ]},
-  { id:5, name:"Vasastan Bowls", cat:"hälsa", emoji:"🥗", tags:["Hälsa","Bowls","Veganskt"], time:20, rating:4.9, reviews:189, badges:["open","new"], items:[
-    {cat:"Bowls", items:[
-      {n:"Green Power Bowl",d:"Quinoa, grönkål, avokado, sesamdressing",p:135},
-      {n:"Protein Warrior",d:"Kyckling, sötpotatis, edamame",p:149},
-      {n:"Buddha Bowl Vegan",d:"Kikärtor, tahini, betor, frön",p:125},
-    ]}
-  ]},
-  { id:6, name:"Östermalm Dim Sum", cat:"asiatisk", emoji:"🥡", tags:["Kinesiskt","Dim Sum","Asiatisk"], time:35, rating:4.7, reviews:234, badges:["open"], items:[
-    {cat:"Dim Sum", items:[
-      {n:"Pork Dumplings (6st)",d:"Fläsk, ingefära, sojadipp",p:105},
-      {n:"Shrimp Har Gow",d:"Räkor, bambusskott (4st)",p:95},
-      {n:"Bao Buns (2st)",d:"BBQ-fläsk, marinerad gurka",p:89},
-    ]}
-  ]},
-];
+// ── Supabase ──────────────────────────────────────────────────
+const SB = supabase.createClient(
+  'https://vgtdswplzuhbhhlmxrgg.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZndGRzd3BsenVoYmhobG14cmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMTY2ODIsImV4cCI6MjA4ODU5MjY4Mn0.82sk-40cQo7NxeRWUgthTzp_fk1TlBcqPchrBGGIFnU'
+);
 
-let cart = [];
-let currentFilter = 'alla';
-let currentCat = 'alla';
-let cartOpen = false;
+// ── State ─────────────────────────────────────────────────────
+let restaurants = [];
+let cart        = [];
+let cartOpen    = false;
+let currentCat  = 'all';
+let currentFilter = 'all';
+let currentModalRestId = null;
+let activeOrders = {};  // orderId → subscription
+let authMode    = 'login'; // 'login' | 'signup'
+let currentUser = null;
 
-// ── RENDER ──
-function renderRestaurants() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  const grid = document.getElementById('restaurantGrid');
-  const filtered = restaurants.filter(r => {
-    const matchCat = currentCat === 'alla' || r.cat === currentCat;
-    const matchQ = !q || r.name.toLowerCase().includes(q) || r.tags.some(t => t.toLowerCase().includes(q));
-    const matchFilter = currentFilter === 'alla' || (currentFilter === 'snabb' && r.time <= 20) || (currentFilter === 'ny' && r.badges.includes('new'));
-    return matchCat && matchQ && matchFilter;
+// ── Init ─────────────────────────────────────────────────────
+async function init() {
+  // Auth state
+  const { data: { session } } = await SB.auth.getSession();
+  currentUser = session?.user || null;
+  updateAuthUI();
+
+  SB.auth.onAuthStateChange((_, session) => {
+    currentUser = session?.user || null;
+    updateAuthUI();
   });
-  grid.innerHTML = filtered.map(r => `
-    <div class="card" onclick="openRestaurant(${r.id})">
-      <div class="card-img">
+
+  // Load restaurants
+  await loadRestaurants();
+
+  // Realtime subscriptions
+  SB.channel('web-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, () => loadRestaurants())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' },  () => loadRestaurants())
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (p) => onOrderUpdate(p.new))
+    .subscribe((status) => {
+      document.getElementById('syncStatus').textContent =
+        status === 'SUBSCRIBED'
+          ? 'LIVE — SYNKRONISERAD MED SUPABASE REALTID'
+          : 'ANSLUTER...';
+    });
+}
+
+async function loadRestaurants() {
+  const { data, error } = await SB
+    .from('restaurants')
+    .select('*, menu_items(*)')
+    .order('name');
+  if (error) { toast('Kunde inte ladda restauranger', 'error'); return; }
+  restaurants = data || [];
+  const open = restaurants.filter(r => r.is_open).length;
+  document.getElementById('openCount').textContent = open;
+  renderGrid();
+}
+
+// ── GRID ──────────────────────────────────────────────────────
+function renderGrid() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = restaurants.filter(r => {
+    const matchCat = currentCat === 'all' || r.category === currentCat;
+    const matchQ   = !q || r.name.toLowerCase().includes(q) || (r.tags||[]).some(t=>t.toLowerCase().includes(q));
+    const matchF   = currentFilter === 'all'
+      || (currentFilter === 'fast' && r.delivery_time_min <= 20)
+      || (currentFilter === 'open' && r.is_open);
+    return matchCat && matchQ && matchF;
+  });
+
+  document.getElementById('restCount').textContent =
+    `${filtered.filter(r=>r.is_open).length} / ${filtered.length} öppna`;
+
+  document.getElementById('restaurantGrid').innerHTML = filtered.length ? filtered.map(r => `
+    <div class="card ${r.is_open ? '' : 'closed'}" onclick="openRestaurant('${r.id}')">
+      <div class="card-img" style="${r.image_url?`background:url('${r.image_url}') center/cover`:''}">
         <div class="card-badges">
-          ${r.badges.map(b => `<span class="badge badge-${b}">${b==='open'?'ÖPPEN':b==='new'?'NYTT':b==='popular'?'POPULÄR':'GRATIS'}</span>`).join('')}
+          <span class="atlas-badge atlas-badge--${r.is_open?'ready':'cancelled'}">${r.is_open?'ÖPPEN':'STÄNGD'}</span>
         </div>
-        ${r.emoji}
+        ${r.image_url ? '' : r.emoji}
       </div>
       <div class="card-body">
         <div class="card-name">${r.name}</div>
-        <div class="card-meta">
-          <div class="card-meta-item">⭐ ${r.rating} (${r.reviews})</div>
-          <div class="card-meta-item">🕐 ${r.time} min</div>
-        </div>
-        <div class="card-tags">${r.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        <div class="card-meta"><span>⭐ ${r.rating} (${r.review_count})</span><span>🕐 ${r.delivery_time_min} min</span></div>
+        <div class="card-tags">${(r.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
         <div class="card-footer">
-          <div class="card-price">Leverans <span>GRATIS</span></div>
-          <div class="add-btn" onclick="event.stopPropagation();openRestaurant(${r.id})">+</div>
+          <span style="font-size:11px;color:var(--atlas-muted)">Leverans <span style="color:var(--atlas-green)">GRATIS</span></span>
+          <div class="add-btn" onclick="event.stopPropagation();openRestaurant('${r.id}')">+</div>
         </div>
       </div>
     </div>
-  `).join('');
+  `).join('') : `<div style="grid-column:1/-1;padding:60px;text-align:center;color:var(--atlas-muted);font-family:var(--atlas-font-mono);font-size:12px">INGA RESTAURANGER HITTADES</div>`;
 }
 
-function filterRestaurants(){renderRestaurants()}
-function setFilter(f,el){
-  currentFilter=f;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  renderRestaurants();
-}
-function setCat(c,el){
-  currentCat=c;
-  document.querySelectorAll('.cat').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  renderRestaurants();
-}
+function setFilter(f,el){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderGrid()}
+function setCat(c,el){currentCat=c;document.querySelectorAll('.cat').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderGrid()}
 
-// ── MODAL ──
+// ── RESTAURANT MODAL ──────────────────────────────────────────
 function openRestaurant(id) {
-  const r = restaurants.find(x=>x.id===id);
+  const r = restaurants.find(x => x.id === id);
+  if(!r) return;
+  currentModalRestId = id;
   document.getElementById('modalTitle').textContent = r.name;
-  document.getElementById('modalMeta').textContent = `⭐ ${r.rating}  •  🕐 ${r.time} min  •  🚀 Gratis leverans`;
-  document.getElementById('modalBody').innerHTML = r.items.map(sec => `
-    <div class="menu-section-title">${sec.cat}</div>
-    ${sec.items.map(item => `
-      <div class="menu-item">
-        <div class="menu-item-info">
-          <div class="menu-item-name">${item.n}</div>
-          <div class="menu-item-desc">${item.d}</div>
+  document.getElementById('modalMeta').textContent = `⭐ ${r.rating}  •  🕐 ${r.delivery_time_min} min  •  🚀 Gratis leverans`;
+
+  const groups = {};
+  (r.menu_items || []).sort((a,b)=>a.sort_order-b.sort_order).forEach(item => {
+    if(!groups[item.category]) groups[item.category] = [];
+    groups[item.category].push(item);
+  });
+
+  document.getElementById('modalBody').innerHTML = Object.entries(groups).map(([cat, items]) => `
+    <div class="menu-cat-title">${cat}</div>
+    ${items.map(item => `
+      <div class="menu-item ${item.is_available ? '' : 'unavailable'}">
+        <div style="flex:1">
+          <div class="menu-item-name">${item.name} ${!item.is_available ? '<span style="font-size:10px;color:var(--atlas-red)">— Slutsåld</span>' : ''}</div>
+          <div class="menu-item-desc">${item.description||''}</div>
         </div>
-        <div class="menu-item-right">
-          <div class="menu-item-price">${item.p} kr</div>
-          <div class="qty-ctrl">
-            <button class="qty-btn" onclick="changeQty('${r.id}_${item.n}',-1)">−</button>
-            <div class="qty-val" id="qty_${r.id}_${encodeURIComponent(item.n)}">0</div>
-            <button class="qty-btn" onclick="changeQty('${r.id}_${item.n}',1,'${r.name}','${item.n}',${item.p})">+</button>
-          </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
+          <div class="menu-item-price">${item.price} kr</div>
+          ${item.is_available ? `
+            <div class="qty-ctrl">
+              <button class="qty-btn" onclick="changeQty('${id}','${item.id}',-1,'${r.name}','${item.name.replace(/'/g,"\\'")}',${item.price})">−</button>
+              <div class="qty-val" id="qty_${item.id}">${getQty(id,item.id)}</div>
+              <button class="qty-btn" onclick="changeQty('${id}','${item.id}',1,'${r.name}','${item.name.replace(/'/g,"\\'")}',${item.price})">+</button>
+            </div>
+          ` : ''}
         </div>
       </div>
     `).join('')}
   `).join('');
-  // restore qty
-  cart.forEach(ci => {
-    const el = document.getElementById(`qty_${r.id}_${encodeURIComponent(ci.name)}`);
-    if(el && ci.restaurantId===r.id) el.textContent = ci.qty;
-  });
+
   document.getElementById('modal').classList.add('open');
 }
-function closeModal(e) {
-  if(!e || e.target.id==='modal' || e.target.className==='modal-close') {
-    document.getElementById('modal').classList.remove('open');
-  }
-}
+function closeModal(){document.getElementById('modal').classList.remove('open')}
+function getQty(restId,itemId){const c=cart.find(x=>x.restaurantId===restId&&x.itemId===itemId);return c?c.qty:0}
 
-// ── CART ──
-function changeQty(key,delta,restName,itemName,price) {
-  const parts = key.split('_');
-  const restId = parseInt(parts[0]);
-  if(delta > 0 && itemName) {
-    const existing = cart.find(c=>c.name===itemName&&c.restaurantId===restId);
-    if(existing) existing.qty++;
-    else cart.push({restaurantId:restId,restaurantName:restName,name:itemName,price,qty:1});
-    showToast(`${itemName} tillagd!`);
+// ── CART ──────────────────────────────────────────────────────
+function changeQty(restId,itemId,delta,restName,itemName,price) {
+  if(delta>0) {
+    const ex=cart.find(c=>c.restaurantId===restId&&c.itemId===itemId);
+    if(ex) ex.qty++;
+    else cart.push({restaurantId:restId,itemId,restaurantName:restName,name:itemName,price:Number(price),qty:1});
+    toast(`${itemName} tillagd!`);
   } else {
-    const idx = cart.findIndex(c=>c.name===itemName&&c.restaurantId===restId);
-    if(idx>=0) {
-      cart[idx].qty--;
-      if(cart[idx].qty<=0) cart.splice(idx,1);
-    }
+    const idx=cart.findIndex(c=>c.restaurantId===restId&&c.itemId===itemId);
+    if(idx>=0){cart[idx].qty--;if(cart[idx].qty<=0)cart.splice(idx,1)}
   }
+  const el=document.getElementById(`qty_${itemId}`);
+  if(el) el.textContent=getQty(restId,itemId);
   updateCartUI();
-  // update qty display in modal
-  if(restId) {
-    const el = document.getElementById(`qty_${restId}_${encodeURIComponent(itemName||'')}`);
-    if(el) {
-      const ci = cart.find(c=>c.name===itemName&&c.restaurantId===restId);
-      el.textContent = ci ? ci.qty : 0;
-    }
-  }
 }
 
 function updateCartUI() {
-  const total = cart.reduce((s,c)=>s+c.price*c.qty,0);
-  const count = cart.reduce((s,c)=>s+c.qty,0);
-  document.getElementById('cartCount').textContent = count;
-  document.getElementById('cartTotal').textContent = total + ' kr';
-  document.getElementById('checkoutBtn').disabled = cart.length === 0;
-  const restNames = [...new Set(cart.map(c=>c.restaurantName))];
-  document.getElementById('cartRestaurant').textContent = restNames.join(', ') || 'Välj en restaurang';
-  const items = document.getElementById('cartItems');
-  if(cart.length === 0) {
-    items.innerHTML = `<div class="cart-empty"><div class="cart-empty-icon">🛒</div><div class="cart-empty-text">KORGEN ÄR TOM</div></div>`;
-  } else {
-    items.innerHTML = cart.map(ci=>`
-      <div class="cart-item">
-        <div class="cart-item-qty">${ci.qty}</div>
-        <div class="cart-item-info">
-          <div class="cart-item-name">${ci.name}</div>
-          <div class="cart-item-rest">${ci.restaurantName}</div>
-        </div>
-        <div class="cart-item-price">${ci.price*ci.qty} kr</div>
+  const total=cart.reduce((s,c)=>s+c.price*c.qty,0);
+  const count=cart.reduce((s,c)=>s+c.qty,0);
+  document.getElementById('cartCount').textContent=count;
+  document.getElementById('cartTotal').textContent=total+' kr';
+  document.getElementById('checkoutBtn').disabled=cart.length===0;
+  const names=[...new Set(cart.map(c=>c.restaurantName))];
+  document.getElementById('cartRestName').textContent=names.join(', ')||'Tom';
+  const el=document.getElementById('cartItems');
+  if(!cart.length){el.innerHTML='<div class="cart-empty"><div class="cart-empty-icon">🛒</div><div class="cart-empty-text">KORGEN ÄR TOM</div></div>';return}
+  el.innerHTML=cart.map(c=>`
+    <div class="cart-item">
+      <div class="cart-item-qty">${c.qty}</div>
+      <div class="cart-item-info"><div class="cart-item-name">${c.name}</div><div class="cart-item-rest">${c.restaurantName}</div></div>
+      <div class="cart-item-price">${(c.price*c.qty).toFixed(0)} kr</div>
+    </div>`).join('');
+}
+function toggleCart(){cartOpen=!cartOpen;document.getElementById('cartSidebar').classList.toggle('open',cartOpen)}
+
+// ── CHECKOUT ─────────────────────────────────────────────────
+function openCheckout() {
+  closeModal();
+  document.getElementById('modalTitle').textContent='Bekräfta beställning';
+  document.getElementById('modalMeta').textContent='';
+  const total=cart.reduce((s,c)=>s+c.price*c.qty,0);
+  document.getElementById('modalBody').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:0">
+      ${cart.map(c=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid var(--atlas-border)"><span>${c.qty}× ${c.name}</span><span style="font-family:var(--atlas-font-mono);color:var(--atlas-cyan)">${(c.price*c.qty).toFixed(0)} kr</span></div>`).join('')}
+      <div style="display:flex;justify-content:space-between;font-family:var(--atlas-font-display);font-size:18px;font-weight:700;margin-top:12px;padding-top:4px"><span>Totalt</span><span style="color:var(--atlas-cyan)">${total.toFixed(0)} kr</span></div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:18px;padding-top:18px;border-top:1px solid var(--atlas-border)">
+        <div><label class="atlas-label">Ditt namn</label><input class="atlas-input" id="cName" placeholder="Erik Lindgren" value="${currentUser?.email?.split('@')[0]||''}"></div>
+        <div><label class="atlas-label">E-post (för spårning)</label><input class="atlas-input" id="cEmail" type="email" placeholder="din@email.se" value="${currentUser?.email||''}"></div>
+        <div><label class="atlas-label">Leveransadress</label><input class="atlas-input" id="cAddr" placeholder="Sveavägen 45, Stockholm"></div>
+        <div><label class="atlas-label">Övrigt (allergier etc)</label><input class="atlas-input" id="cNotes" placeholder="Inga lökar..."></div>
+        <button class="atlas-btn-primary" style="width:100%;margin-top:4px;font-size:13px;padding:14px" id="placeBtn" onclick="placeOrder()">BEKRÄFTA BESTÄLLNING</button>
       </div>
-    `).join('');
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+async function placeOrder() {
+  const name  = document.getElementById('cName').value.trim();
+  const email = document.getElementById('cEmail').value.trim();
+  const addr  = document.getElementById('cAddr').value.trim();
+  const notes = document.getElementById('cNotes').value.trim();
+  if(!name||!addr){toast('Fyll i namn och adress','error');return}
+
+  const btn = document.getElementById('placeBtn');
+  btn.disabled=true; btn.textContent='LÄGGER ORDER...';
+
+  try {
+    const restId = cart[0].restaurantId;
+    const items  = cart.map(c=>({itemId:c.itemId,name:c.name,price:c.price,qty:c.qty}));
+
+    // Get next order ID
+    const {data:orderId,error:idErr} = await SB.rpc('next_order_id');
+    if(idErr) throw idErr;
+
+    const total = cart.reduce((s,c)=>s+c.price*c.qty,0);
+
+    const {data:order,error} = await SB.from('orders').insert({
+      id: orderId,
+      restaurant_id: restId,
+      customer_name: name,
+      customer_email: email||null,
+      address: addr,
+      items: JSON.stringify(items),
+      total,
+      notes: notes||null,
+      status: 'new',
+    }).select().single();
+    if(error) throw error;
+
+    cart=[];
+    updateCartUI();
+    closeModal();
+    document.getElementById('cartSidebar').classList.remove('open');
+    cartOpen=false;
+
+    // Subscribe to this order for live tracking
+    subscribeToOrder(order.id);
+    toast(`✅ Order ${order.id} lagd! Restaurangen tar emot den snart.`,'info');
+    showOrderTracker(order);
+
+  } catch(e) {
+    toast('Fel: '+e.message,'error');
+    btn.disabled=false; btn.textContent='BEKRÄFTA BESTÄLLNING';
   }
 }
 
-function toggleCart(){
-  cartOpen=!cartOpen;
-  document.getElementById('cartSidebar').classList.toggle('open',cartOpen);
+// ── ORDER TRACKER ─────────────────────────────────────────────
+const STATUS_STEPS = ['new','accepted','preparing','ready','picked','delivered'];
+const STATUS_LABELS_SV = {
+  new:       'Order mottagen',
+  accepted:  'Restaurangen bekräftad',
+  preparing: 'Din mat tillagas 🍳',
+  ready:     'Klar — bud hämtar',
+  picked:    'Budet är på väg 🛵',
+  delivered: 'Levererad! 🎉',
+};
+
+function showOrderTracker(order) {
+  document.getElementById('trackerTitle').textContent = 'Spårar ' + order.id;
+  renderTracker(order);
+  document.getElementById('trackerModal').classList.add('open');
+}
+function closeTracker(){document.getElementById('trackerModal').classList.remove('open')}
+
+function renderTracker(order) {
+  const currentIdx = STATUS_STEPS.indexOf(order.status);
+  document.getElementById('trackerBody').innerHTML = `
+    <div class="tracker">
+      <div class="tracker-title">ORDERSTATUS — ${order.id}</div>
+      ${STATUS_STEPS.filter(s=>s!=='cancelled').map((s,i)=>`
+        <div class="tracker-step ${i<currentIdx?'done':i===currentIdx?'active':''}">
+          <div class="tracker-dot"></div>
+          <span>${STATUS_LABELS_SV[s]||s}</span>
+          ${i===currentIdx?'<span style="font-family:var(--atlas-font-mono);font-size:10px;color:var(--atlas-cyan);margin-left:auto">NU</span>':''}
+        </div>
+      `).join('')}
+    </div>
+    <div style="margin-top:16px;display:flex;justify-content:space-between;font-size:12px;color:var(--atlas-muted)">
+      <span>${order.customer_name} → ${order.address}</span>
+      <span style="font-family:var(--atlas-font-mono)">${Number(order.total).toFixed(0)} kr</span>
+    </div>
+    ${order.status==='delivered'?`<div style="margin-top:14px;padding:14px;background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);border-radius:10px;font-size:13px;text-align:center;color:var(--atlas-green)">Din mat har levererats! Smaklig måltid 🎉</div>`:''}
+  `;
 }
 
-function checkout(){
-  showToast('🎉 Beställning lagd! Spåra i realtid.');
-  cart=[];
-  updateCartUI();
-  setTimeout(()=>{
-    document.getElementById('cartSidebar').classList.remove('open');
-    cartOpen=false;
-  },1500);
+function subscribeToOrder(orderId) {
+  if(activeOrders[orderId]) return;
+  const ch = SB.channel(`order-track-${orderId}`)
+    .on('postgres_changes', {event:'UPDATE',schema:'public',table:'orders',filter:`id=eq.${orderId}`},
+      p => {
+        onOrderUpdate(p.new);
+        // If tracker modal open for this order, re-render
+        if(document.getElementById('trackerModal').classList.contains('open')) {
+          renderTracker(p.new);
+        }
+      }
+    ).subscribe();
+  activeOrders[orderId]=ch;
 }
 
-function showToast(msg){
-  const t=document.getElementById('toast');
-  document.getElementById('toastMsg').textContent=msg;
-  t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2500);
+function onOrderUpdate(order) {
+  const labels={
+    accepted: '✅ Restaurangen tog emot din order!',
+    preparing:'🍳 Din mat tillagas nu!',
+    ready:    '📦 Maten är klar — bud hämtar!',
+    picked:   '🛵 Budet är på väg till dig!',
+    delivered:'🎉 Din mat är levererad!',
+  };
+  if(labels[order.status]) toast(labels[order.status],'info');
 }
 
-function showSection(s){}
+// ── MY ORDERS ─────────────────────────────────────────────────
+async function showMyOrders() {
+  if(!currentUser?.email){toast('Logga in för att se dina ordrar','info');return}
+  const {data,error}=await SB.from('orders').select('*').eq('customer_email',currentUser.email).order('created_at',{ascending:false}).limit(20);
+  if(error){toast('Kunde inte ladda ordrar','error');return}
+  document.getElementById('modalTitle').textContent='Mina beställningar';
+  document.getElementById('modalMeta').textContent='';
+  document.getElementById('modalBody').innerHTML=data.length?data.map(o=>`
+    <div style="padding:12px 0;border-bottom:1px solid var(--atlas-border);cursor:pointer" onclick="subscribeToOrder('${o.id}');showOrderTracker(${JSON.stringify(o).replace(/"/g,'&quot;')})">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-family:var(--atlas-font-mono);font-size:11px;color:var(--atlas-cyan)">${o.id}</span>
+        <span class="atlas-badge atlas-badge--${o.status}">${{new:'NY',accepted:'MOTTAGEN',preparing:'TILLAGAS',ready:'KLAR',picked:'HÄMTAD',delivered:'LEVERERAD',cancelled:'ANNULLERAD'}[o.status]}</span>
+      </div>
+      <div style="font-size:13px;font-weight:500">${o.address}</div>
+      <div style="font-size:11px;color:var(--atlas-muted);margin-top:3px;font-family:var(--atlas-font-mono)">${Number(o.total).toFixed(0)} kr · ${new Date(o.created_at).toLocaleDateString('sv-SE')}</div>
+    </div>`).join('')
+    :'<div style="padding:40px;text-align:center;color:var(--atlas-muted);font-family:var(--atlas-font-mono);font-size:12px">INGA BESTÄLLNINGAR ÄN</div>';
+  document.getElementById('modal').classList.add('open');
+}
 
-renderRestaurants();
+// ── AUTH ──────────────────────────────────────────────────────
+function toggleAuth(){document.getElementById('authOverlay').classList.toggle('open');renderAuthForm()}
+function toggleAuthMode(){authMode=authMode==='login'?'signup':'login';renderAuthForm()}
+function updateAuthUI(){
+  const btn=document.getElementById('authBtn');
+  if(currentUser){btn.textContent='Logga ut';btn.onclick=async()=>{await SB.auth.signOut();toast('Utloggad')}}
+  else{btn.textContent='Logga in';btn.onclick=toggleAuth}
+}
+function renderAuthForm() {
+  document.getElementById('authTitle').textContent=authMode==='login'?'Logga in':'Skapa konto';
+  document.getElementById('authSubText').textContent=authMode==='login'?'Logga in för att spåra dina beställningar':'Skapa ett konto — helt gratis';
+  document.getElementById('authToggleLink').textContent=authMode==='login'?'Skapa konto →':'Har redan konto? Logga in';
+  document.getElementById('authError').className='auth-error';
+  document.getElementById('authForm').innerHTML=`
+    ${authMode==='signup'?`<div><label class="atlas-label">Namn</label><input class="atlas-input" id="aName" placeholder="Erik Lindgren"></div>`:''}
+    <div><label class="atlas-label">E-post</label><input class="atlas-input" id="aEmail" type="email" placeholder="din@email.se"></div>
+    <div><label class="atlas-label">Lösenord</label><input class="atlas-input" id="aPwd" type="password" placeholder="••••••••"></div>
+    <button class="atlas-btn-primary" style="width:100%" onclick="submitAuth()">${authMode==='login'?'LOGGA IN':'SKAPA KONTO'}</button>
+  `;
+}
+async function submitAuth(){
+  const email=document.getElementById('aEmail').value;
+  const pwd=document.getElementById('aPwd').value;
+  const errEl=document.getElementById('authError');
+  try{
+    if(authMode==='login'){
+      const{error}=await SB.auth.signInWithPassword({email,password:pwd});
+      if(error) throw error;
+    } else {
+      const name=document.getElementById('aName')?.value||'';
+      const{data,error}=await SB.auth.signUp({email,password:pwd});
+      if(error) throw error;
+      if(data.user) await SB.from('profiles').upsert({id:data.user.id,role:'customer',name});
+    }
+    document.getElementById('authOverlay').classList.remove('open');
+    toast(authMode==='login'?'Inloggad! 👋':'Konto skapat! 🎉','info');
+  } catch(e){
+    errEl.textContent=e.message;errEl.className='auth-error show';
+  }
+}
+
+// ── TOAST ──────────────────────────────────────────────────────
+let _tt;
+function toast(msg,type='success'){
+  const el=document.getElementById('atlas-toast');
+  document.getElementById('atlas-toast-msg').textContent=msg;
+  el.className=`atlas-toast atlas-toast--${type==='error'?'error':type==='info'?'info':'success'}`;
+  el.classList.add('show');
+  clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3200);
+}
+
+init();
 </script>
 </body>
 </html>
